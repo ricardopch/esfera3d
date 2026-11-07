@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:keepScreenOn="true">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.ricardopch.esfera3d.GuideOverlayView
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <FrameLayout
+        android:id="@+id/uiLayer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/panelIntro"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_margin="12dp"
+            android:background="@drawable/panel"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Cómo hacer la foto"
+                android:textColor="@color/texto"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="3dp"
+                android:text="1. Sujeta el móvil en vertical, con el brazo estirado delante de ti.\n2. Gira sobre tus pies, despacio, hacia la derecha: el móvil debe trazar un círculo alrededor de tu cuerpo (no gires solo la muñeca). Esa separación es la que crea el 3D.\n3. Mantén el punto central sobre la línea guía hasta completar la vuelta."
+                android:textColor="@color/texto_suave"
+                android:textSize="14sp" />
+
+            <RadioGroup
+                android:id="@+id/radioMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/radioFull"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="Esfera completa: 3 vueltas (horizonte, arriba y abajo)"
+                    android:textColor="@color/texto" />
+
+                <RadioButton
+                    android:id="@+id/radioQuick"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rápida: solo la vuelta del horizonte"
+                    android:textColor="@color/texto" />
+            </RadioGroup>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnBack"
+                    style="@style/Boton"
+                    android:text="Volver" />
+
+                <Button
+                    android:id="@+id/btnStart"
+                    style="@style/Boton.Principal"
+                    android:layout_width="0dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:text="Empezar" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/panelCapture"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/btnCancel"
+                style="@style/Boton"
+                android:text="Cancelar" />
+
+            <Button
+                android:id="@+id/btnSkip"
+                style="@style/Boton"
+                android:layout_marginStart="8dp"
+                android:text="Saltar vuelta" />
+
+            <Button
+                android:id="@+id/btnFinish"
+                style="@style/Boton.Principal"
+                android:layout_marginStart="8dp"
+                android:text="Terminar" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/panelProcessing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_margin="24dp"
+            android:background="@drawable/panel"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/txtProcessing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Procesando…"
+                android:textColor="@color/texto"
+                android:textSize="17sp" />
+
+            <ProgressBar
+                android:id="@+id/progress"
+                style="@android:style/Widget.Material.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:max="100" />
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <android.opengl.GLSurfaceView
+        android:id="@+id/glView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/txtLoading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Cargando…"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+    <FrameLayout
+        android:id="@+id/uiLayer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/topBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:background="#99000000"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <Button
+                android:id="@+id/btnClose"
+                style="@style/Boton"
+                android:text="←" />
+
+            <TextView
+                android:id="@+id/txtInfo"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:id="@+id/bottomBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:background="#99000000"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <Button
+                    android:id="@+id/btnVr"
+                    style="@style/Boton.Principal"
+                    android:text="Gafas VR" />
+
+                <Button
+                    android:id="@+id/btnStereo"
+                    style="@style/Boton"
+                    android:layout_marginStart="8dp"
+                    android:text="3D real" />
+
+                <Button
+                    android:id="@+id/btnAnaglyph"
+                    style="@style/Boton"
+                    android:layout_marginStart="8dp"
+                    android:text="Anaglifo: no" />
+
+                <Button
+                    android:id="@+id/btnGyro"
+                    style="@style/Boton"
+                    android:layout_marginStart="8dp"
+                    android:text="Giroscopio: sí" />
+
+                <Button
+                    android:id="@+id/btnCenter"
+                    style="@style/Boton"
+                    android:layout_marginStart="8dp"
+                    android:text="Centrar" />
+
+                <Button
+                    android:id="@+id/btnViewerSettings"
+                    style="@style/Boton"
+                    android:layout_marginStart="8dp"
+                    android:text="Ajustes" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/txtVrHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="12dp"
+            android:background="#99000000"
+            android:padding="8dp"
+            android:text="Toca la pantalla para centrar la vista · Atrás para salir"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </FrameLayout>
+</FrameLayout>

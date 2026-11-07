@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/fondo"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="12dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textColor="@color/texto"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fotos 360° en 3D estereoscópico"
+                android:textColor="@color/texto_suave"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnHelp"
+            style="@style/Boton"
+            android:layout_marginEnd="6dp"
+            android:text="Ayuda" />
+
+        <Button
+            android:id="@+id/btnSettings"
+            style="@style/Boton"
+            android:text="Ajustes" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp">
+
+        <Button
+            android:id="@+id/btnNew"
+            style="@style/Boton.Principal"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:minHeight="56dp"
+            android:text="Nueva foto 3D 360" />
+
+        <Button
+            android:id="@+id/btnImport"
+            style="@style/Boton"
+            android:layout_marginStart="10dp"
+            android:minHeight="56dp"
+            android:text="Importar" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="28dp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:text="Aún no tienes fotos.\n\nPulsa «Nueva foto 3D 360», sujeta el móvil en vertical con el brazo estirado y gira despacio sobre ti mismo siguiendo la guía."
+        android:textColor="@color/texto_suave"
+        android:textSize="15sp" />
+
+    <GridView
+        android:id="@+id/grid"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:horizontalSpacing="10dp"
+        android:numColumns="2"
+        android:padding="12dp"
+        android:stretchMode="columnWidth"
+        android:verticalSpacing="10dp" />
+</LinearLayout>

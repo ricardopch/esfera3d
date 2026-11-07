@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Esfera con meridianos y paralelos; un ojo en rojo y otro en cian (estéreo) -->
+    <path android:fillColor="#00000000" android:strokeColor="#FF5A5A" android:strokeWidth="3"
+        android:pathData="M52,54m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+    <path android:fillColor="#00000000" android:strokeColor="#3FD8E6" android:strokeWidth="3"
+        android:pathData="M56,54m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFB547" android:strokeWidth="2.5"
+        android:pathData="M32,54 L76,54 M54,32 C44,40 44,68 54,76 M54,32 C64,40 64,68 54,76 M36,43 C46,47 62,47 72,43 M36,65 C46,61 62,61 72,65" />
+</vector>

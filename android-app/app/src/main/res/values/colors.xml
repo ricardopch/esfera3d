@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fondo">#11161C</color>
+    <color name="tarjeta">#1C242D</color>
+    <color name="texto">#F1F4F7</color>
+    <color name="texto_suave">#9AA7B4</color>
+    <color name="acento">#FFB547</color>
+    <color name="panel">#CC0E1318</color>
+</resources>
