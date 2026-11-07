@@ -145,8 +145,8 @@ public final class DepthEstimator {
                 }
             }
             if (progress != null) progress.onProgress(0.85f);
-            q = crossBilateral(q, gM, dw, dh, 2, 2.0, 14.0);
-            q = crossBilateral(q, gM, dw, dh, 2, 2.0, 14.0);
+            q = crossBilateral(q, gM, dw, dh, 3, 3.0, 14.0);
+            q = crossBilateral(q, gM, dw, dh, 3, 3.0, 14.0);
         } else {
             q = qPrior;
         }
@@ -400,6 +400,9 @@ public final class DepthEstimator {
             for (int dx = -rad; dx <= rad; dx++)
                 ws[(dy + rad) * (2 * rad + 1) + dx + rad] = Math.exp(-(dx * dx + dy * dy) / (2 * sigS * sigS));
         double inv2r = 1.0 / (2 * sigR * sigR);
+        // Tabla de pesos por diferencia de gris (evita calcular exp() en cada vecino)
+        double[] rangeW = new double[512];
+        for (int i = 0; i < rangeW.length; i++) rangeW[i] = Math.exp(-(double) i * i * inv2r);
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 int i = y * w + x;
@@ -411,8 +414,8 @@ public final class DepthEstimator {
                     for (int dx = -rad; dx <= rad; dx++) {
                         int xx = ((x + dx) % w + w) % w;
                         int j = yy * w + xx;
-                        double dg = guide[j] - g0;
-                        double wt = ws[(dy + rad) * (2 * rad + 1) + dx + rad] * Math.exp(-dg * dg * inv2r);
+                        int dg = (int) Math.abs(guide[j] - g0);
+                        double wt = ws[(dy + rad) * (2 * rad + 1) + dx + rad] * rangeW[Math.min(511, dg)];
                         acc += v[j] * wt;
                         wsum += wt;
                     }

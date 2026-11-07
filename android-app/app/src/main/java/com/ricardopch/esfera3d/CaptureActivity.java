@@ -7,9 +7,12 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.VibrationEffect;
@@ -28,6 +31,7 @@ import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.camera.camera2.interop.Camera2CameraControl;
 import androidx.camera.camera2.interop.Camera2CameraInfo;
+import androidx.camera.camera2.interop.Camera2Interop;
 import androidx.camera.camera2.interop.CaptureRequestOptions;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
@@ -78,7 +82,9 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
     private Prefs prefs;
 
     private final RgbaFrameSampler sampler = new RgbaFrameSampler();
-    private final float[] rot = new float[9];
+    private final float[] rotC = new float[9], rotL = new float[9], rotR = new float[9];
+    /** Exposición y lectura (obturador) de cada fotograma, desde los resultados de captura. */
+    private final FrameTiming timing = new FrameTiming();
     private volatile CameraModel cam;
     private volatile int state = STATE_PREVIEW;
     private volatile SweepStitcher stitcher;
@@ -217,11 +223,20 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
                         .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
                         .build();
                 Preview preview = new Preview.Builder().setResolutionSelector(previewRes).build();
-                ImageAnalysis analysis = new ImageAnalysis.Builder()
+                ImageAnalysis.Builder ab = new ImageAnalysis.Builder()
                         .setResolutionSelector(analysisRes)
                         .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build();
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST);
+                new Camera2Interop.Extender<>(ab).setSessionCaptureCallback(new CameraCaptureSession.CaptureCallback() {
+                    @Override
+                    public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result) {
+                        Long ts = result.get(CaptureResult.SENSOR_TIMESTAMP);
+                        Long exp = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+                        Long skew = result.get(CaptureResult.SENSOR_ROLLING_SHUTTER_SKEW);
+                        if (ts != null) timing.put(ts, exp != null ? exp : -1, skew != null ? skew : -1);
+                    }
+                });
+                ImageAnalysis analysis = ab.build();
                 analysis.setAnalyzer(analysisExec, this::analyze);
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
                 provider.unbindAll();
@@ -303,6 +318,9 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
         double vfov = cam.vfovDeg();
         ringPitch = Math.max(45, Math.min(vfov - 6, 88 - vfov / 2));
         guide = new SweepGuide(full, ringPitch);
+        // Bordes rectos donde acaba lo capturado (en el modo rápido, arriba y abajo)
+        double reach = (full ? ringPitch : 0) + vfov / 2 - 3;
+        st.setLatitudeLimits(-Math.min(90, reach), Math.min(90, reach));
         stitcher = st;
         lockExposure();
         panelIntro.setVisibility(View.GONE);
@@ -319,6 +337,17 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
         long off = SystemClock.elapsedRealtimeNanos() - System.nanoTime();
         if (Math.abs(camTs + off - sensorNow) <= limit) return camTs + off;
         return Long.MAX_VALUE; // bases de tiempo desconocidas: última orientación
+    }
+
+    /** Retardo de lectura de la columna u de la imagen enderezada (en el búfer del sensor es una fila). */
+    private static long stripDelay(float u, int rotDeg, int bufH, long skew) {
+        if (skew <= 0 || bufH < 2) return 0;
+        double frac;
+        if (rotDeg == 90) frac = (bufH - 1 - u) / (double) (bufH - 1);
+        else if (rotDeg == 270) frac = u / (double) (bufH - 1);
+        else frac = 0.5;
+        frac = Math.max(0, Math.min(1, frac));
+        return (long) (skew * frac);
     }
 
     private void analyze(ImageProxy img) {
@@ -338,9 +367,29 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
             if (st == null || g == null || g.isDone()) return;
             ImageProxy.PlaneProxy plane = img.getPlanes()[0];
             sampler.set(plane.getBuffer(), img.getWidth(), img.getHeight(), plane.getRowStride(), rotDeg);
-            long t = toSensorTime(img.getImageInfo().getTimestamp());
-            if (!tracker.rotationAt(t, rot)) return;
-            st.addFrame(sampler, cam, rot);
+            long camTs = img.getImageInfo().getTimestamp();
+            long base = toSensorTime(camTs);
+            CameraModel c = cam;
+            double tanA = Math.tan(st.alpha());
+            if (base == Long.MAX_VALUE) {
+                if (!tracker.latest(rotC)) return;
+                System.arraycopy(rotC, 0, rotL, 0, 9);
+                System.arraycopy(rotC, 0, rotR, 0, 9);
+            } else {
+                // Cada franja se lee en un instante distinto (obturador progresivo): se usa la
+                // orientación del móvil en el centro de la exposición de esa franja.
+                long[] er = timing.get(camTs);
+                long t0 = base + er[0] / 2;
+                long tC = t0 + stripDelay(c.cx, rotDeg, img.getHeight(), er[1]);
+                long tL = t0 + stripDelay((float) (c.cx + c.fx * tanA), rotDeg, img.getHeight(), er[1]);
+                long tR = t0 + stripDelay((float) (c.cx - c.fx * tanA), rotDeg, img.getHeight(), er[1]);
+                if (!tracker.rotationAt(tC, rotC)) return;
+                tracker.rotationAt(tL, rotL);
+                tracker.rotationAt(tR, rotR);
+            }
+            SweepGuide.Ring ringNow = g.currentRing();
+            double nominal = ringNow != null ? ringNow.pitchDeg : Double.NaN;
+            st.addFrame(sampler, c, rotC, rotL, rotR, nominal);
             boolean ringDone = g.update(st.headingDeg(), st.pitchDeg(), st.rollDeg(), SystemClock.elapsedRealtimeNanos());
             if (ringDone) runOnUiThread(this::vibrate);
             long now = SystemClock.uptimeMillis();
@@ -420,11 +469,6 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
             DepthEstimator.Result depth = DepthEstimator.estimate(st.left.color, st.right.color, st.mono.color,
                     w, h, EYE_RADIUS, CAMERA_HEIGHT, f -> step("Calculando la profundidad de la escena…", 22 + Math.round(f * 40)));
             Log.i(TAG, "profundidad: " + depth.describe());
-            if (depth.measured) {
-                step("Corrigiendo la perspectiva…", 64);
-                PanoPost.correctVerticalParallax(new int[][]{st.left.color, st.right.color, st.mono.color},
-                        w, h, depth.q, depth.w, depth.h, arm);
-            }
             PanoPost.poleBlend(st.left.color, st.right.color, st.mono.color, w, h, 60, 75);
             step("Guardando…", 75);
             JSONObject info = new JSONObject();
@@ -433,6 +477,7 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
             info.put("fotogramas", st.framesUsed());
             info.put("brazoCm", Math.round(arm * 100));
             info.put("alfaGrados", Math.toDegrees(st.alpha()));
+            info.put("fotogramasAlineados", st.alignedFrames());
             CameraModel c = cam;
             if (c != null) {
                 info.put("campoH", c.hfovDeg());
