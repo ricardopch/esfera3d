@@ -29,6 +29,8 @@ public final class DepthEstimator {
         public boolean indoor;
         public double confidentFraction;
         public double medianDisparityPx;
+        /** Distancia horizontal típica (m) en cada columna del mapa (ancho w), o null si no se pudo medir. */
+        public float[] columnDistance;
 
         public String describe() {
             return (measured ? "paralaje medida" : "modelo de escena")
@@ -117,6 +119,7 @@ public final class DepthEstimator {
         }
         res.wallDistance = wall;
         res.indoor = indoor;
+        if (res.measured) res.columnDistance = columnDistances(qMeas, wMeas, dw, dh, bandY0, bandY1);
         float[] qPrior = new float[dw * dh];
         for (int y = 0; y < dh; y++) {
             double lat = PanoBuffer.latOf(y, dh);
@@ -159,6 +162,56 @@ public final class DepthEstimator {
         }
         if (progress != null) progress.onProgress(1f);
         return res;
+    }
+
+    /** Mediana por columna de la distancia horizontal medida (|lat| < 30°), rellenada y suavizada. */
+    static float[] columnDistances(float[] qMeas, float[] wMeas, int dw, int dh, int y0, int y1) {
+        float[] col = new float[dw];
+        double[] tmp = new double[dh];
+        int good = 0;
+        for (int x = 0; x < dw; x++) {
+            int n = 0;
+            for (int y = y0; y <= y1; y++) {
+                double lat = PanoBuffer.latOf(y, dh);
+                if (Math.abs(lat) > Math.toRadians(30)) continue;
+                int i = y * dw + x;
+                if (wMeas[i] <= 0 || qMeas[i] <= 1e-4f) continue;
+                tmp[n++] = DMIN / qMeas[i] * Math.cos(lat);
+            }
+            if (n >= 8) {
+                Arrays.sort(tmp, 0, n);
+                col[x] = (float) tmp[n / 2];
+                good++;
+            } else {
+                col[x] = Float.NaN;
+            }
+        }
+        if (good < dw / 8) return null;
+        // Rellenar columnas sin dato interpolando (circularmente) entre las vecinas con dato
+        float[] f = col.clone();
+        for (int x = 0; x < dw; x++) {
+            if (!Float.isNaN(col[x])) continue;
+            int a = 1, b = 1;
+            while (a < dw && Float.isNaN(col[((x - a) % dw + dw) % dw])) a++;
+            while (b < dw && Float.isNaN(col[(x + b) % dw])) b++;
+            float va = col[((x - a) % dw + dw) % dw], vb = col[(x + b) % dw];
+            f[x] = va + (vb - va) * a / (float) (a + b);
+        }
+        // Trabajar con 1/d (más estable) y suavizar en ±10°
+        for (int x = 0; x < dw; x++) f[x] = 1f / Math.max(0.5f, Math.min(15f, f[x]));
+        int rad = Math.max(2, dw / 36);
+        for (int it = 0; it < 3; it++) {
+            float[] g = new float[dw];
+            double acc = 0;
+            for (int k = -rad; k <= rad; k++) acc += f[((k % dw) + dw) % dw];
+            for (int x = 0; x < dw; x++) {
+                g[x] = (float) (acc / (2 * rad + 1));
+                acc += f[(x + rad + 1) % dw] - f[((x - rad) % dw + dw) % dw];
+            }
+            f = g;
+        }
+        for (int x = 0; x < dw; x++) f[x] = 1f / f[x];
+        return f;
     }
 
     /** q del modelo de escena para una latitud dada. ceiling = altura del techo sobre los ojos (0 = sin techo). */

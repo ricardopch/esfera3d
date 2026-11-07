@@ -21,6 +21,16 @@ public final class OrientationTracker implements SensorEventListener {
     private final SensorManager sm;
     private final Sensor sensor;
     private final float[] tmpQ = new float[4];
+    private volatile Recorder recorder;
+
+    /** Recibe cada muestra del sensor (para el diagnóstico). */
+    public interface Recorder {
+        void onSample(long t, float w, float x, float y, float z);
+    }
+
+    public void setRecorder(Recorder r) {
+        recorder = r;
+    }
 
     public OrientationTracker(Context ctx) {
         sm = (SensorManager) ctx.getSystemService(Context.SENSOR_SERVICE);
@@ -53,6 +63,8 @@ public final class OrientationTracker implements SensorEventListener {
             qz[head] = tmpQ[3];
             if (count < N) count++;
         }
+        Recorder r = recorder;
+        if (r != null) r.onSample(e.timestamp, tmpQ[0], tmpQ[1], tmpQ[2], tmpQ[3]);
     }
 
     @Override

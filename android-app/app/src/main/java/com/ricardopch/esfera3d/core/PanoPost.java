@@ -288,6 +288,115 @@ public final class PanoPost {
         return ((q[ya * qw + qx] & 0xFF) * (1 - a) + (q[yb * qw + qx] & 0xFF) * a) / 255.0;
     }
 
+    /**
+     * Corrige la perspectiva vertical con una distancia por columna (la de las paredes y
+     * muebles en esa dirección, muy suavizada). Al girar con el brazo estirado, cada franja se
+     * ve desde R metros por delante de los ojos y lo cercano sale estirado en vertical; un punto
+     * que desde los ojos está a la elevación λc aparece a λp con tan λp = tan λc · d / (d − R).
+     * Lejos del horizonte la corrección se atenúa. Modifica las imágenes y el mapa q in situ.
+     */
+    public static void correctVerticalByColumns(int[][] images, int w, int h, float[] colDist,
+                                                byte[] q, int qw, int qh, double armRadius) {
+        if (colDist == null || armRadius <= 0.01) return;
+        int cw = colDist.length;
+        // Fila de origen para cada (fila de salida, columna del mapa de distancias)
+        float[] srcRow = new float[cw * h];
+        for (int cx = 0; cx < cw; cx++) {
+            double d = Math.max(armRadius + 0.35, colDist[cx]);
+            double k = d / (d - armRadius);
+            for (int y = 0; y < h; y++) {
+                double latC = PanoBuffer.latOf(y, h);
+                double latP = Math.atan(Math.tan(latC) * k);
+                double wgt = 1 - smooth((Math.abs(Math.toDegrees(latC)) - 35) / 30.0);
+                double latS = latC + (latP - latC) * wgt;
+                srcRow[y * cw + cx] = (float) ((0.5 - latS / Math.PI) * h - 0.5);
+            }
+        }
+        for (int[] img : images) {
+            if (img == null) continue;
+            int[] col = new int[h];
+            for (int x = 0; x < w; x++) {
+                float fc = (x + 0.5f) * cw / w - 0.5f;
+                int c0 = (int) Math.floor(fc);
+                float ac = fc - c0;
+                int ca = ((c0 % cw) + cw) % cw, cb = (ca + 1) % cw;
+                for (int y = 0; y < h; y++) col[y] = img[y * w + x];
+                for (int y = 0; y < h; y++) {
+                    float sy = srcRow[y * cw + ca] * (1 - ac) + srcRow[y * cw + cb] * ac;
+                    int y0 = (int) Math.floor(sy);
+                    float ay = sy - y0;
+                    int ya = clamp(y0, 0, h - 1), yb = clamp(y0 + 1, 0, h - 1);
+                    img[y * w + x] = lerpColor(col[ya], col[yb], ay);
+                }
+            }
+        }
+        if (q != null) {
+            int[] col = new int[qh];
+            for (int qx = 0; qx < qw; qx++) {
+                int cx = Math.min(cw - 1, qx * cw / qw);
+                for (int y = 0; y < qh; y++) col[y] = q[y * qw + qx] & 0xFF;
+                for (int y = 0; y < qh; y++) {
+                    int yy = Math.min(h - 1, (int) ((y + 0.5) * h / qh));
+                    float sy = (srcRow[yy * cw + cx] + 0.5f) * qh / h - 0.5f;
+                    int y0 = (int) Math.floor(sy);
+                    float ay = sy - y0;
+                    int ya = clamp(y0, 0, qh - 1), yb = clamp(y0 + 1, 0, qh - 1);
+                    q[y * qw + qx] = (byte) Math.round(col[ya] * (1 - ay) + col[yb] * ay);
+                }
+            }
+        }
+    }
+
+    /**
+     * Ajuste automático de niveles: estira el contraste entre los percentiles 0,5 y 99,5 y
+     * aplica una curva para que el tono medio quede en torno al 42 %. La misma curva para
+     * todas las imágenes (los dos ojos deben verse iguales). Devuelve la curva aplicada.
+     */
+    public static int[] autoLevels(int[] ref, int[]... images) {
+        int[] hist = new int[256];
+        int step = Math.max(1, ref.length / 400_000);
+        int n = 0;
+        for (int i = 0; i < ref.length; i += step) {
+            int c = ref[i];
+            int l = (int) (0.299 * ((c >> 16) & 0xFF) + 0.587 * ((c >> 8) & 0xFF) + 0.114 * (c & 0xFF));
+            hist[l]++;
+            n++;
+        }
+        int lo = percentile(hist, n, 0.005), hi = percentile(hist, n, 0.995), med = percentile(hist, n, 0.5);
+        hi = Math.max(hi, lo + 40);
+        // No estirar más de 2,5 veces
+        if (hi - lo < 255 / 2.5) {
+            int c = (lo + hi) / 2;
+            lo = Math.max(0, c - (int) (255 / 5.0));
+            hi = Math.min(255, lo + (int) (255 / 2.5));
+        }
+        double m = Math.max(0.02, Math.min(0.98, (med - lo) / (double) (hi - lo)));
+        double gamma = Math.log(0.42) / Math.log(m);
+        gamma = Math.max(0.45, Math.min(1.6, gamma));
+        int[] lut = new int[256];
+        for (int v = 0; v < 256; v++) {
+            double t = Math.max(0, Math.min(1, (v - lo) / (double) (hi - lo)));
+            lut[v] = (int) Math.round(255 * Math.pow(t, gamma));
+        }
+        for (int[] img : images) {
+            if (img == null) continue;
+            for (int i = 0; i < img.length; i++) {
+                int c = img[i];
+                img[i] = 0xFF000000 | (lut[(c >> 16) & 0xFF] << 16) | (lut[(c >> 8) & 0xFF] << 8) | lut[c & 0xFF];
+            }
+        }
+        return lut;
+    }
+
+    private static int percentile(int[] hist, int n, double p) {
+        long target = Math.round(n * p), acc = 0;
+        for (int v = 0; v < 256; v++) {
+            acc += hist[v];
+            if (acc >= target) return v;
+        }
+        return 255;
+    }
+
     /** Reduce una panorámica a tw × th promediando bloques. */
     public static int[] downsample(int[] src, int w, int h, int tw, int th) {
         int[] out = new int[tw * th];

@@ -11,17 +11,19 @@ public final class SweepGuide {
         public final double pitchDeg;
         public final boolean[] bins = new boolean[360];
         public int covered;
+        /** Grados girados dentro de la vuelta (para cerrarla con algo de solape). */
+        public double travel;
 
         Ring(double pitchDeg) {
             this.pitchDeg = pitchDeg;
         }
 
         public double progress() {
-            return covered / 360.0;
+            return Math.min(covered / 360.0, travel / 372.0);
         }
     }
 
-    public static final double PITCH_TOL = 12;
+    public static final double PITCH_TOL = 9;
     public static final double ROLL_TOL = 15;
     public static final double SPEED_WARN = 30;   // grados por segundo
     public static final double SPEED_MAX = 50;
@@ -103,6 +105,7 @@ public final class SweepGuide {
 
         if (hasLast && pitchOk && rollOk && speedOk && Math.abs(delta) < 15) {
             markBins(ring, lastHeading, headingDeg);
+            ring.travel += Math.abs(delta);
         } else if (!hasLast && pitchOk && rollOk) {
             markBins(ring, headingDeg, headingDeg);
         }
@@ -110,7 +113,7 @@ public final class SweepGuide {
         lastTimeNs = timeNs;
         hasLast = true;
 
-        if (ring.covered >= 360) {
+        if (ring.covered >= 360 && ring.travel >= 372) {
             current++;
             hasLast = false;
             ringDoneAtNs = timeNs;

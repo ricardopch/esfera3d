@@ -13,6 +13,7 @@ import android.util.LruCache;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.CheckBox;
 import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -84,16 +85,27 @@ public class MainActivity extends ComponentActivity {
     }
 
     private void showActions(CaptureStore.Entry e) {
-        String[] opts = {"Ver en la pantalla", "Ver con gafas VR", "Guardar en la galería del móvil", "Borrar"};
+        String[] opts = {"Ver en la pantalla", "Ver con gafas VR", "Guardar en la galería del móvil", "Datos técnicos", "Borrar"};
         new AlertDialog.Builder(this)
                 .setTitle(e.title())
                 .setItems(opts, (d, which) -> {
                     if (which == 0) open(e, false);
                     else if (which == 1) open(e, true);
                     else if (which == 2) export(e);
+                    else if (which == 3) showInfo(e);
                     else confirmDelete(e);
                 })
                 .show();
+    }
+
+    private void showInfo(CaptureStore.Entry e) {
+        String txt;
+        try {
+            txt = e.info.toString(2);
+        } catch (Exception ex) {
+            txt = String.valueOf(e.info);
+        }
+        new AlertDialog.Builder(this).setTitle("Datos técnicos").setMessage(txt).setPositiveButton("Cerrar", null).show();
     }
 
     private void confirmDelete(CaptureStore.Entry e) {
@@ -266,14 +278,14 @@ public class MainActivity extends ComponentActivity {
         TextView tArm = new TextView(this);
         box.addView(tArm);
         SeekBar sb = new SeekBar(this);
-        sb.setMax(60);
-        sb.setProgress(prefs.armCm() - 20);
+        sb.setMax(45);
+        sb.setProgress(prefs.armCm() - 15);
         tArm.setText(armText(prefs.armCm()));
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int p, boolean u) {
-                tArm.setText(armText(p + 20));
-                if (u) prefs.setArmCm(p + 20);
+                tArm.setText(armText(p + 15));
+                if (u) prefs.setArmCm(p + 15);
             }
 
             @Override
@@ -303,6 +315,13 @@ public class MainActivity extends ComponentActivity {
         rg.setOnCheckedChangeListener((g, id) -> prefs.setPanoWidth(id == 2001 ? 4096 : 2048));
         box.addView(rg);
 
+        CheckBox cbDiag = new CheckBox(this);
+        cbDiag.setText("Guardar datos de diagnóstico de cada captura en Descargas (un .zip para enviar si algo sale mal)");
+        cbDiag.setChecked(prefs.diagnostics());
+        cbDiag.setPadding(0, Ui.dp(grid, 12), 0, 0);
+        cbDiag.setOnCheckedChangeListener((b, on) -> prefs.setDiagnostics(on));
+        box.addView(cbDiag);
+
         new AlertDialog.Builder(this)
                 .setTitle("Ajustes")
                 .setView(box)
@@ -311,18 +330,19 @@ public class MainActivity extends ComponentActivity {
     }
 
     private static String armText(int cm) {
-        return "Distancia del móvil a tu cuerpo al girar: " + cm + " cm\n(con el brazo estirado suele ser 40–55 cm; cuanto mayor, menos se separan las franjas de cada ojo)";
+        return "Distancia del móvil al centro de tu cuerpo al girar: " + cm + " cm\n(móvil delante del pecho con los codos doblados ≈ 30 cm; con el brazo estirado ≈ 50 cm, peor en habitaciones pequeñas)";
     }
 
     private void showHelp() {
         new AlertDialog.Builder(this)
                 .setTitle("Cómo funciona")
                 .setMessage("HACER LA FOTO\n"
-                        + "• Sujeta el móvil en vertical con el brazo estirado y gira sobre tus pies, despacio (una vuelta en unos 20–30 s). El móvil debe describir un círculo alrededor de ti: así cada parte de la escena se ve desde dos puntos distintos, como con dos ojos.\n"
+                        + "• Sujeta el móvil en vertical delante del pecho, con los codos doblados, y gira sobre tus pies, despacio y siempre hacia la derecha (una vuelta en unos 25 s). El móvil describe un círculo pequeño alrededor de ti: así cada parte de la escena se ve desde dos puntos distintos, como con dos ojos. No estires el brazo: en habitaciones pequeñas deforma los objetos cercanos.\n"
+                        + "• Empieza mirando a una pared o un mueble, no a una ventana: la exposición se fija al empezar.\n"
                         + "• Sigue la línea guía con el punto central. En «Esfera completa» harás 3 vueltas: horizonte, inclinado hacia arriba y hacia abajo.\n"
                         + "• Evita que haya gente u objetos moviéndose cerca.\n\n"
                         + "EL 3D\n"
-                        + "• 3D real: se construye con franjas distintas de cada fotograma para cada ojo (estéreo omnidireccional). Funciona si giraste con el brazo estirado.\n"
+                        + "• 3D real: se construye con franjas distintas de cada fotograma para cada ojo (estéreo omnidireccional). Funciona si el móvil giró alrededor de ti (no sobre sí mismo).\n"
                         + "• 3D figurado: la app calcula un mapa de profundidad a partir del barrido (y, donde no puede medirla, usa un modelo de suelo y paredes) y genera los dos ojos. Sirve también si giraste sin separar el móvil del cuerpo, y permite ajustar la intensidad.\n\n"
                         + "VERLA\n"
                         + "• En la pantalla: mueve el móvil hacia donde quieras mirar; arrastra con el dedo para girar y pellizca para acercar. Con gafas de cartón rojo/cian, activa «Anaglifo».\n"

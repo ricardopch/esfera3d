@@ -92,6 +92,10 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
     private boolean fullMode;
     private double ringPitch = 55;
     private boolean processingStarted;
+    private String captureId;
+    private volatile DiagnosticRecorder diag;
+    private boolean diagHeader;
+    private int diagIndex;
 
     // Datos ópticos del sensor (para el campo de visión)
     private float focalMm = -1, physLong = -1, pixLong = -1, activeLong = -1, activeShort = -1;
@@ -316,7 +320,8 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
             st = new SweepStitcher(w, w / 2, alpha);
         }
         double vfov = cam.vfovDeg();
-        ringPitch = Math.max(45, Math.min(vfov - 6, 88 - vfov / 2));
+        // Vueltas de arriba y abajo con bastante solape con la del horizonte (costuras limpias)
+        ringPitch = Math.max(40, Math.min(60, vfov - 16));
         guide = new SweepGuide(full, ringPitch);
         // Bordes rectos donde acaba lo capturado (en el modo rápido, arriba y abajo)
         double reach = (full ? ringPitch : 0) + vfov / 2 - 3;
@@ -327,6 +332,19 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
         panelCapture.setVisibility(View.VISIBLE);
         btnSkip.setVisibility(full ? View.VISIBLE : View.GONE);
         panelCapture.post(() -> overlay.setBottomReserve(panelCapture.getHeight()));
+        captureId = CaptureStore.newId();
+        if (prefs.diagnostics()) {
+            DiagnosticRecorder d = new DiagnosticRecorder(this, captureId);
+            d.info("dispositivo=" + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL + " (Android " + android.os.Build.VERSION.SDK_INT + ")");
+            d.info(String.format(Locale.ROOT, "focal_mm=%.3f fisico_largo_mm=%.3f pixeles_largo=%.0f activo=%.0fx%.0f",
+                    focalMm, physLong, pixLong, activeLong, activeShort));
+            d.info(String.format(Locale.ROOT, "camara_enderezada=%dx%d fx=%.2f fy=%.2f campoH=%.2f campoV=%.2f",
+                    cam.width, cam.height, cam.fx, cam.fy, cam.hfovDeg(), cam.vfovDeg()));
+            d.info(String.format(Locale.ROOT, "alfa=%.3f radio_cm=%d ancho=%d esfera=%b vuelta_incl=%.2f",
+                    Math.toDegrees(alpha), prefs.armCm(), w, full, ringPitch));
+            tracker.setRecorder(d::sensorSample);
+            diag = d;
+        }
         state = STATE_CAPTURING;
     }
 
@@ -390,6 +408,25 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
             SweepGuide.Ring ringNow = g.currentRing();
             double nominal = ringNow != null ? ringNow.pitchDeg : Double.NaN;
             st.addFrame(sampler, c, rotC, rotL, rotR, nominal);
+            DiagnosticRecorder d = diag;
+            if (d != null) {
+                if (!diagHeader) {
+                    diagHeader = true;
+                    d.info("bufer=" + img.getWidth() + "x" + img.getHeight() + " paso_fila=" + plane.getRowStride() + " rotacion=" + rotDeg);
+                }
+                long[] er = timing.get(camTs);
+                StringBuilder sb = new StringBuilder(400);
+                sb.append(diagIndex).append(',').append(camTs).append(',').append(base == Long.MAX_VALUE ? -1 : base).append(',')
+                        .append(er[0]).append(',').append(er[1]).append(',').append(rotDeg).append(',').append(nominal).append(',')
+                        .append(String.format(Locale.ROOT, "%.3f,%.3f,%.3f,%.4f,%.4f,%d,", st.headingDeg(), st.pitchDeg(), st.rollDeg(),
+                                st.correctionYawDeg(), st.correctionPitchDeg(), st.framesUsed()));
+                boolean keep = (diagIndex % 2) == 0;
+                sb.append(keep ? 1 : 0);
+                for (float[] m : new float[][]{rotC, rotL, rotR}) for (float v : m) sb.append(',').append(v);
+                int tw = c.width / 3, th = c.height / 3;
+                d.frame(sb.toString(), diagIndex, keep ? sampler.uprightThumbnail(tw, th) : null, tw, th);
+                diagIndex++;
+            }
             boolean ringDone = g.update(st.headingDeg(), st.pitchDeg(), st.rollDeg(), SystemClock.elapsedRealtimeNanos());
             if (ringDone) runOnUiThread(this::vibrate);
             long now = SystemClock.uptimeMillis();
@@ -446,6 +483,17 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
         if (provider != null) provider.unbindAll();
         final SweepStitcher st = stitcher;
         final double arm = prefs.armCm() / 100.0;
+        tracker.setRecorder(null);
+        final DiagnosticRecorder d = diag;
+        diag = null;
+        if (d != null) {
+            new Thread(() -> {
+                String where = d.finish(getApplicationContext());
+                runOnUiThread(() -> Toast.makeText(getApplicationContext(),
+                        where != null ? "Diagnóstico guardado en " + where : "No se pudo guardar el diagnóstico",
+                        Toast.LENGTH_LONG).show());
+            }, "diagnostico").start();
+        }
         new Thread(() -> process(st, arm), "procesado").start();
     }
 
@@ -469,6 +517,13 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
             DepthEstimator.Result depth = DepthEstimator.estimate(st.left.color, st.right.color, st.mono.color,
                     w, h, EYE_RADIUS, CAMERA_HEIGHT, f -> step("Calculando la profundidad de la escena…", 22 + Math.round(f * 40)));
             Log.i(TAG, "profundidad: " + depth.describe());
+            if (depth.measured && depth.columnDistance != null) {
+                step("Corrigiendo la perspectiva…", 64);
+                PanoPost.correctVerticalByColumns(new int[][]{st.left.color, st.right.color, st.mono.color}, w, h,
+                        depth.columnDistance, depth.q, depth.w, depth.h, arm);
+            }
+            step("Ajustando la luz…", 70);
+            PanoPost.autoLevels(st.mono.color, st.left.color, st.right.color, st.mono.color);
             PanoPost.poleBlend(st.left.color, st.right.color, st.mono.color, w, h, 60, 75);
             step("Guardando…", 75);
             JSONObject info = new JSONObject();
@@ -483,7 +538,8 @@ public class CaptureActivity extends ComponentActivity implements GuideOverlayVi
                 info.put("campoH", c.hfovDeg());
                 info.put("campoV", c.vfovDeg());
             }
-            final CaptureStore.Entry e = CaptureStore.save(this, CaptureStore.newId(), st.left.color, st.right.color,
+            String id = captureId != null ? captureId : CaptureStore.newId();
+            final CaptureStore.Entry e = CaptureStore.save(this, id, st.left.color, st.right.color,
                     st.mono.color, w, h, depth, info);
             stitcher = null;
             step("¡Listo!", 100);

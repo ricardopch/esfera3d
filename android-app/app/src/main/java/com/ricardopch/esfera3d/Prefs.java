@@ -13,11 +13,11 @@ public final class Prefs {
 
     /** Distancia del móvil al eje de giro (el cuerpo), en cm. */
     public int armCm() {
-        return sp.getInt("brazo_cm", 45);
+        return sp.getInt("radio_cm", 30);
     }
 
     public void setArmCm(int v) {
-        sp.edit().putInt("brazo_cm", v).apply();
+        sp.edit().putInt("radio_cm", v).apply();
     }
 
     /** Ancho de la panorámica: 4096 (alta) o 2048 (ligera). */
@@ -27,6 +27,15 @@ public final class Prefs {
 
     public void setPanoWidth(int v) {
         sp.edit().putInt("ancho", v).apply();
+    }
+
+    /** Guardar datos de diagnóstico de las capturas en Descargas. */
+    public boolean diagnostics() {
+        return sp.getBoolean("diagnostico", false);
+    }
+
+    public void setDiagnostics(boolean v) {
+        sp.edit().putBoolean("diagnostico", v).apply();
     }
 
     public boolean fullSphere() {

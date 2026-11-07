@@ -15,18 +15,21 @@ Cada APK nuevo se instala encima del anterior sin perder las fotos (todas las co
 
 1. **Nueva foto 3D 360**. La primera vez pide permiso de cámara.
 2. Elige **Esfera completa** (3 vueltas: horizonte, arriba y abajo; unos 2 minutos) o **Rápida** (solo la vuelta del horizonte).
-3. Sujeta el móvil **en vertical, con el brazo estirado**, apunta al horizonte y pulsa **Empezar**.
-4. **Gira sobre tus pies, despacio, hacia la derecha** (una vuelta en 20–30 s). El móvil tiene que describir un círculo alrededor de tu cuerpo: no gires solo la muñeca. Mantén el punto de mira sobre la línea blanca; lo ya capturado se pinta en verde.
+3. Sujeta el móvil **en vertical, delante del pecho y con los codos doblados** (a un palmo del cuerpo; no estires el brazo). Apunta a una pared o un mueble, **no a una ventana** (la exposición se fija al empezar), y pulsa **Empezar**.
+4. **Gira sobre tus pies, despacio, a ritmo constante y siempre hacia la derecha** (una vuelta en unos 25 s). El móvil describe un círculo pequeño alrededor de tu cuerpo: no gires solo la muñeca. Mantén el punto de mira sobre la línea blanca; lo ya capturado se pinta en verde.
 5. Al terminar cada vuelta el móvil vibra y te dice hacia dónde inclinarlo para la siguiente.
 6. Al acabar, la app procesa la foto (unos segundos) y la abre en el visor.
 
-Consejos: evita personas u objetos moviéndose cerca; con poca luz gira más despacio para que no salga movido.
+Consejos: evita personas u objetos moviéndose cerca; con poca luz gira más despacio para que no salga movido. En habitaciones pequeñas es especialmente importante no estirar el brazo: cuanto más lejos del cuerpo va el móvil, más se deforman los objetos cercanos.
+
+Si algo sale mal, en **Ajustes** activa **Guardar datos de diagnóstico**: cada captura deja en *Descargas* un `Esfera3D_diagnostico_….zip` con los fotogramas reducidos y los datos de los sensores, para poder reproducir el cosido y corregirlo.
 
 ## Cómo se construye el 3D
 
-- **3D real** (estéreo omnidireccional por franjas): al girar con el brazo estirado, la cámara recorre un círculo de unos 45 cm de radio. Para el ojo izquierdo se toma de cada fotograma una franja estrecha algo a la derecha del centro, y para el derecho una algo a la izquierda; cosidas en orden, dan dos panorámicas vistas desde puntos separados como los ojos. La separación depende de **Ajustes › Distancia del móvil a tu cuerpo**.
+- **3D real** (estéreo omnidireccional por franjas): al girar con el móvil delante del pecho, la cámara recorre un círculo de unos 30 cm de radio. Para el ojo izquierdo se toma de cada fotograma una franja estrecha algo a la derecha del centro, y para el derecho una algo a la izquierda; cosidas en orden, dan dos panorámicas vistas desde puntos separados como los ojos. La separación depende de **Ajustes › Distancia del móvil a tu cuerpo**.
 - **3D figurado**: se mide la diferencia entre esas dos panorámicas para obtener un **mapa de profundidad**; donde no se puede medir (zonas lisas, cielo, cénit, nadir) se completa con un modelo de suelo, paredes y techo. Con ese mapa se generan los dos ojos a partir de la panorámica central. Funciona incluso si giraste sin separar el móvil del cuerpo y su intensidad se puede ajustar.
-- La perspectiva vertical también se corrige con la profundidad (al girar con el brazo estirado, los objetos cercanos tienden a salir estirados).
+- Cada vuelta se **alinea por imagen** con la anterior (y consigo misma al cerrarla), para que las costuras no formen peines aunque el giroscopio o el campo de visión de la cámara tengan pequeños errores.
+- La perspectiva vertical se corrige con la distancia típica de cada dirección (los objetos cercanos tienden a salir estirados) y el brillo se ajusta automáticamente.
 
 ## Ver las fotos
 

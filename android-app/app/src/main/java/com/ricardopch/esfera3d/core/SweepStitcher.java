@@ -40,7 +40,9 @@ public final class SweepStitcher {
 
     // Límites de latitud (grados) para no dejar bordes dentados en lo no cubierto
     private double latMinDeg = -90, latMaxDeg = 90;
-    private double stitchPitchTol = 15;
+    private double stitchPitchTol = 10;
+    private double ringPitchSum, ringTravelDeg;
+    private int ringPitchN;
 
     // Alineado por imagen
     private boolean alignEnabled = true;
@@ -178,22 +180,40 @@ public final class SweepStitcher {
             corrPitch = 0;
             ringAligned = 0;
             lastNominal = nominalPitch;
+            ringPitchSum = 0;
+            ringPitchN = 0;
+            ringTravelDeg = 0;
         }
         // Fotogramas de transición entre vueltas (el usuario inclinando el móvil): no se usan.
         if (useNominal && Math.abs(pitchDeg - nominalPitch) > stitchPitchTol) return;
+        // Cierre de la vuelta: lo que ya escribió el principio de esta vuelta no se pisa
+        // (así no se mezclan columnas de principio y final, que pueden diferir un poco).
+        boolean fillOnly = ringTravelDeg > 362;
+        ringTravelDeg += Math.toDegrees(dphi);
+        // Costura entre vueltas: a mitad de camino entre las inclinaciones *reales* medias de
+        // cada vuelta, que es donde las dos tienen más margen de imagen.
+        double seamPitch = Double.NaN;
+        if (useNominal) {
+            ringPitchSum += pitchDeg;
+            ringPitchN++;
+            seamPitch = (nominalPitch * 10 + ringPitchSum) / (10 + ringPitchN);
+        }
 
         // Alineado por imagen con lo capturado hace más de 300° de barrido
         if (alignEnabled) {
             double[] c = aligner.align(s, cam, r, phiRaw, this, corrYaw, corrPitch);
             if (c != null) {
-                if (ringAligned++ == 0) {
-                    corrYaw = c[0];
-                    corrPitch = c[1];
-                } else {
-                    corrYaw += 0.5 * (c[0] - corrYaw);
-                    corrPitch += 0.5 * (c[1] - corrPitch);
+                // La corrección cambia despacio (error del campo de visión, deriva del giroscopio):
+                // media de las primeras estimaciones y luego un filtro lento que descarta las raras.
+                boolean outlier = ringAligned >= 5
+                        && (Math.abs(c[0] - corrYaw) > Math.toRadians(0.8) || Math.abs(c[1] - corrPitch) > Math.toRadians(0.8));
+                if (!outlier) {
+                    double gain = Math.max(0.08, 1.0 / (ringAligned + 1));
+                    corrYaw += gain * (c[0] - corrYaw);
+                    corrPitch += gain * (c[1] - corrPitch);
+                    ringAligned++;
+                    alignedFrames++;
                 }
-                alignedFrames++;
             }
             if (corrYaw != 0 || corrPitch != 0) {
                 float[] q = correction(phiRaw, corrYaw, corrPitch);
@@ -220,11 +240,11 @@ public final class SweepStitcher {
         y0 = Math.max(y0, yLimTop);
         y1 = Math.min(y1, yLimBot);
 
-        double nominal = useNominal ? Math.toRadians(nominalPitch) : Double.NaN;
+        double nominal = useNominal ? Math.toRadians(seamPitch) : Double.NaN;
         short st = (short) Math.min(32000, Math.round(sweepDeg));
-        project(s, cam, rl, Mat3.cameraHeading(rl) + alpha, hw, y0, y1, left, nominal, null, st);
-        project(s, cam, rr, Mat3.cameraHeading(rr) - alpha, hw, y0, y1, right, nominal, null, st);
-        project(s, cam, r, phi, hw, y0, y1, mono, nominal, stamp, st);
+        project(s, cam, rl, Mat3.cameraHeading(rl) + alpha, hw, y0, y1, left, nominal, null, st, fillOnly);
+        project(s, cam, rr, Mat3.cameraHeading(rr) - alpha, hw, y0, y1, right, nominal, null, st, fillOnly);
+        project(s, cam, r, phi, hw, y0, y1, mono, nominal, stamp, st, fillOnly);
     }
 
     /** Pequeña rotación de corrección: rumbo (alrededor de la vertical) e inclinación (eje horizontal lateral). */
@@ -241,7 +261,8 @@ public final class SweepStitcher {
     }
 
     private void project(FrameSampler s, CameraModel cam, float[] r, double center, double hw,
-                         int y0, int y1, PanoBuffer buf, double nominal, short[] stampOut, short st) {
+                         int y0, int y1, PanoBuffer buf, double nominal, short[] stampOut, short st,
+                         boolean fillOnly) {
         final double twoPi = 2 * Math.PI;
         int xa = (int) Math.floor(((center - hw) / twoPi + 0.5) * W - 0.5) - 1;
         int xb = (int) Math.ceil(((center + hw) / twoPi + 0.5) * W - 0.5) + 1;
@@ -277,7 +298,9 @@ public final class SweepStitcher {
                 int sc = (int) ((0.35 * ht + vt) * (254.0 / 1.35));
                 if (sc > 253) sc = 253;
                 int idx = row + xi;
-                if (sc < (buf.score[idx] & 0xFF)) {
+                int old = buf.score[idx] & 0xFF;
+                if (fillOnly && old != PanoBuffer.EMPTY) continue;
+                if (sc < old) {
                     int col = s.sample(u, v);
                     if (col != 0) {
                         buf.color[idx] = col;

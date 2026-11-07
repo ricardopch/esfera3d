@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:lineSpacingExtra="3dp"
-                android:text="1. Sujeta el móvil en vertical, con el brazo estirado delante de ti.\n2. Gira sobre tus pies, despacio, hacia la derecha: el móvil debe trazar un círculo alrededor de tu cuerpo (no gires solo la muñeca). Esa separación es la que crea el 3D.\n3. Mantén el punto central sobre la línea guía hasta completar la vuelta."
+                android:text="1. Sujeta el móvil en vertical delante del pecho, con los codos doblados (a un palmo del cuerpo). No estires el brazo.\n2. Empieza mirando a una pared o un mueble, no a una ventana: la luz se fija al empezar.\n3. Gira sobre tus pies, despacio y a ritmo constante, siempre hacia la derecha (no gires solo la muñeca). Mantén el punto central sobre la línea guía hasta completar la vuelta."
                 android:textColor="@color/texto_suave"
                 android:textSize="14sp" />
 

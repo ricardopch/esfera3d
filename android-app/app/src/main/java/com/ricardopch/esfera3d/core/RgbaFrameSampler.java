@@ -26,6 +26,29 @@ public final class RgbaFrameSampler implements FrameSampler {
         }
     }
 
+    /** Copia reducida (vecino más próximo) de la imagen enderezada, para diagnóstico. */
+    public int[] uprightThumbnail(int tw, int th) {
+        int[] out = new int[tw * th];
+        for (int ty = 0; ty < th; ty++) {
+            float v = (ty + 0.5f) * upH / th;
+            for (int tx = 0; tx < tw; tx++) {
+                float u = (tx + 0.5f) * upW / tw;
+                int bx, by;
+                switch (rotation) {
+                    case 90: bx = (int) v; by = bufH - 1 - (int) u; break;
+                    case 180: bx = bufW - 1 - (int) u; by = bufH - 1 - (int) v; break;
+                    case 270: bx = bufW - 1 - (int) v; by = (int) u; break;
+                    default: bx = (int) u; by = (int) v;
+                }
+                bx = Math.max(0, Math.min(bufW - 1, bx));
+                by = Math.max(0, Math.min(bufH - 1, by));
+                int i = by * rowStride + bx * 4;
+                out[ty * tw + tx] = 0xFF000000 | ((buf.get(i) & 0xFF) << 16) | ((buf.get(i + 1) & 0xFF) << 8) | (buf.get(i + 2) & 0xFF);
+            }
+        }
+        return out;
+    }
+
     @Override
     public int width() {
         return upW;
