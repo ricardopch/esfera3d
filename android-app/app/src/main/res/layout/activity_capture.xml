@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:lineSpacingExtra="3dp"
-                android:text="1. Sujeta el móvil en vertical delante del pecho, con los codos doblados (a un palmo del cuerpo). No estires el brazo.\n2. Empieza mirando a una pared o un mueble, no a una ventana: la luz se fija al empezar.\n3. Gira sobre tus pies, despacio y a ritmo constante, siempre hacia la derecha (no gires solo la muñeca). Mantén el punto central sobre la línea guía hasta completar la vuelta."
+                android:text="1. Sujeta el móvil en vertical cerca del cuerpo, delante del pecho y con los codos pegados. No estires el brazo.\n2. Empieza ya en posición, mirando a una pared o un mueble (no a una ventana ni a una lámpara): la luz se fija al empezar.\n3. Gira sobre tus pies sin moverte del sitio, despacio y siempre hacia la derecha, con el punto central sobre la línea guía. Cada vuelta termina un poco después de pasar por donde empezó.\n4. Al acabar, la app cose la foto: tarda alrededor de un minuto."
                 android:textColor="@color/texto_suave"
                 android:textSize="14sp" />
 

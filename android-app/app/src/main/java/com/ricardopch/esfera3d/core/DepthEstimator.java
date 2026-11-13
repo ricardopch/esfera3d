@@ -148,6 +148,8 @@ public final class DepthEstimator {
                 }
             }
             if (progress != null) progress.onProgress(0.85f);
+            // Suavizado previo: la paralaje medida a mano alzada tiene ruido de columna a columna
+            q = boxBlur(q, dw, dh, 4);
             q = crossBilateral(q, gM, dw, dh, 3, 3.0, 14.0);
             q = crossBilateral(q, gM, dw, dh, 3, 3.0, 14.0);
         } else {

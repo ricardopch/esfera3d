@@ -16,7 +16,7 @@ Cada APK nuevo se instala encima del anterior sin perder las fotos (todas las co
 1. **Nueva foto 3D 360**. La primera vez pide permiso de cámara.
 2. Elige **Esfera completa** (3 vueltas: horizonte, arriba y abajo; unos 2 minutos) o **Rápida** (solo la vuelta del horizonte).
 3. Sujeta el móvil **en vertical, delante del pecho y con los codos doblados** (a un palmo del cuerpo; no estires el brazo). Apunta a una pared o un mueble, **no a una ventana** (la exposición se fija al empezar), y pulsa **Empezar**.
-4. **Gira sobre tus pies, despacio, a ritmo constante y siempre hacia la derecha** (una vuelta en unos 25 s). El móvil describe un círculo pequeño alrededor de tu cuerpo: no gires solo la muñeca. Mantén el punto de mira sobre la línea blanca; lo ya capturado se pinta en verde.
+4. **Gira sobre tus pies, despacio, a ritmo constante y siempre hacia la derecha** (una vuelta en unos 25–30 s; cada vuelta termina un poco después de pasar por donde empezó). El móvil describe un círculo pequeño alrededor de tu cuerpo: no gires solo la muñeca. Mantén el punto de mira sobre la línea blanca; lo ya capturado se pinta en verde.
 5. Al terminar cada vuelta el móvil vibra y te dice hacia dónde inclinarlo para la siguiente.
 6. Al acabar, la app procesa la foto (unos segundos) y la abre en el visor.
 
@@ -24,12 +24,22 @@ Consejos: evita personas u objetos moviéndose cerca; con poca luz gira más des
 
 Si algo sale mal, en **Ajustes** activa **Guardar datos de diagnóstico**: cada captura deja en *Descargas* un `Esfera3D_diagnostico_….zip` con los fotogramas reducidos y los datos de los sensores, para poder reproducir el cosido y corregirlo.
 
+## Cómo se cose la foto
+
+Durante el barrido la app solo guarda los fotogramas (la franja central de cada uno) con la orientación del móvil. Al terminar los cose, con todos los datos delante (alrededor de un minuto):
+
+1. **Temblor de la mano**: el estabilizador óptico de la cámara mueve la imagen sin que el giroscopio lo sepa. La app mide con la propia imagen cuánto se ha movido cada fotograma respecto al anterior y corrige la parte rápida de la diferencia.
+2. **Campo de visión real**: el declarado por el fabricante suele fallar un 5–15 % (el vídeo recorta el sensor). Se calcula a partir de la deformación en trapecio de la imagen al girar, que no depende de la distancia a los objetos.
+3. **Escala del giroscopio**: tras una vuelta completa el rumbo medido no vuelve exactamente a su sitio (típicamente unos grados por vuelta, que se acumulan). Se mide comparando el final de cada vuelta con su principio y se corrige en todo el barrido.
+4. **Mezcla en vez de corte**: cada columna de la panorámica es la mezcla de los dos fotogramas vecinos en rumbo, sin franjas con borde brusco. El cierre de cada vuelta se funde con su principio.
+5. **Unión entre vueltas**: la vuelta de arriba y la de abajo se alinean con la del horizonte comparando la zona común por tramos (un desplazamiento suave a lo largo de la vuelta, elegido por programación dinámica) y se funden con un degradado.
+
 ## Cómo se construye el 3D
 
-- **3D real** (estéreo omnidireccional por franjas): al girar con el móvil delante del pecho, la cámara recorre un círculo de unos 30 cm de radio. Para el ojo izquierdo se toma de cada fotograma una franja estrecha algo a la derecha del centro, y para el derecho una algo a la izquierda; cosidas en orden, dan dos panorámicas vistas desde puntos separados como los ojos. La separación depende de **Ajustes › Distancia del móvil a tu cuerpo**.
-- **3D figurado**: se mide la diferencia entre esas dos panorámicas para obtener un **mapa de profundidad**; donde no se puede medir (zonas lisas, cielo, cénit, nadir) se completa con un modelo de suelo, paredes y techo. Con ese mapa se generan los dos ojos a partir de la panorámica central. Funciona incluso si giraste sin separar el móvil del cuerpo y su intensidad se puede ajustar.
-- Cada vuelta se **alinea por imagen** con la anterior (y consigo misma al cerrarla), para que las costuras no formen peines aunque el giroscopio o el campo de visión de la cámara tengan pequeños errores.
-- La perspectiva vertical se corrige con la distancia típica de cada dirección (los objetos cercanos tienden a salir estirados) y el brillo se ajusta automáticamente.
+- **3D real** (estéreo omnidireccional): como el móvil gira alrededor de tu cuerpo, para el ojo izquierdo se toma de cada fotograma la franja situada unos grados a la derecha del centro, y para el derecho la de la izquierda; así cada ojo ve la escena desde un punto distinto. El ángulo depende de **Ajustes › Distancia del móvil a tu cuerpo**.
+- **3D figurado**: se mide la diferencia entre esas dos panorámicas para obtener un **mapa de profundidad**; donde no se puede medir (zonas lisas, cénit, nadir) se completa con un modelo de suelo, paredes y techo. Con ese mapa se generan los dos ojos a partir de la panorámica central; su intensidad se puede ajustar.
+
+Límites conocidos: los objetos muy cercanos (a menos de un metro) salen algo alargados en vertical, tanto más cuanto más lejos del cuerpo vaya el móvil; el cénit y el nadir se completan difuminando; la exposición se fija al empezar.
 
 ## Ver las fotos
 
@@ -52,6 +62,6 @@ GitHub compila solo el APK en cada cambio (pestaña *Actions*, flujo «Compilar 
 
 Estructura:
 
-- `android-app/app/src/main/java/com/ricardopch/esfera3d/core/`: cosido estéreo, profundidad, relleno y síntesis (Java puro, sin dependencias de Android).
+- `android-app/app/src/main/java/com/ricardopch/esfera3d/core/`: cosido (`SphereBuilder`), seguimiento del movimiento por imagen (`MotionEstimator`, `MotionTracker`), profundidad, relleno y síntesis (Java puro, sin dependencias de Android).
 - `android-app/app/src/main/java/com/ricardopch/esfera3d/`: pantallas (galería, captura guiada, visor), cámara (CameraX), sensores y almacenamiento.
 - `android-app/app/src/main/res/raw/pano_frag.glsl`: visor por trazado de rayos (ventana y gafas con corrección de lente, estéreo real, figurado y anaglifo).

@@ -49,6 +49,37 @@ public final class RgbaFrameSampler implements FrameSampler {
         return out;
     }
 
+    /**
+     * Miniatura en gris de la imagen enderezada, reducida «step» veces (media del canal verde
+     * de cada bloque). Para el seguimiento del movimiento.
+     */
+    public byte[] grayThumbnail(int step) {
+        int tw = upW / step, th = upH / step;
+        byte[] out = new byte[tw * th];
+        int area = step * step;
+        for (int ty = 0; ty < th; ty++) {
+            for (int tx = 0; tx < tw; tx++) {
+                int sum = 0;
+                for (int dy = 0; dy < step; dy++) {
+                    int v = ty * step + dy;
+                    for (int dx = 0; dx < step; dx++) {
+                        int u = tx * step + dx;
+                        int bx, by;
+                        switch (rotation) {
+                            case 90: bx = v; by = bufH - 1 - u; break;
+                            case 180: bx = bufW - 1 - u; by = bufH - 1 - v; break;
+                            case 270: bx = bufW - 1 - v; by = u; break;
+                            default: bx = u; by = v;
+                        }
+                        sum += buf.get(by * rowStride + bx * 4 + 1) & 0xFF;
+                    }
+                }
+                out[ty * tw + tx] = (byte) (sum / area);
+            }
+        }
+        return out;
+    }
+
     @Override
     public int width() {
         return upW;

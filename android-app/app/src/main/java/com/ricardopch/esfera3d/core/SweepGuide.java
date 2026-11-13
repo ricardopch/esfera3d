@@ -19,11 +19,13 @@ public final class SweepGuide {
         }
 
         public double progress() {
-            return Math.min(covered / 360.0, travel / 372.0);
+            return Math.min(covered / 360.0, travel / REQUIRED_TRAVEL);
         }
     }
 
-    public static final double PITCH_TOL = 9;
+    public static final double PITCH_TOL = 7;
+    /** Giro exigido por vuelta: una vuelta entera más un solape para fundir el cierre. */
+    public static final double REQUIRED_TRAVEL = 385;
     public static final double ROLL_TOL = 15;
     public static final double SPEED_WARN = 30;   // grados por segundo
     public static final double SPEED_MAX = 50;
@@ -113,7 +115,7 @@ public final class SweepGuide {
         lastTimeNs = timeNs;
         hasLast = true;
 
-        if (ring.covered >= 360 && ring.travel >= 372) {
+        if (ring.covered >= 360 && ring.travel >= REQUIRED_TRAVEL) {
             current++;
             hasLast = false;
             ringDoneAtNs = timeNs;

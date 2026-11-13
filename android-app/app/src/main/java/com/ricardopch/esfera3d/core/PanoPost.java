@@ -363,7 +363,8 @@ public final class PanoPost {
             n++;
         }
         int lo = percentile(hist, n, 0.005), hi = percentile(hist, n, 0.995), med = percentile(hist, n, 0.5);
-        hi = Math.max(hi, lo + 40);
+        lo = Math.min(lo, 16);
+        hi = Math.max(hi, 200);
         // No estirar más de 2,5 veces
         if (hi - lo < 255 / 2.5) {
             int c = (lo + hi) / 2;
@@ -372,7 +373,8 @@ public final class PanoPost {
         }
         double m = Math.max(0.02, Math.min(0.98, (med - lo) / (double) (hi - lo)));
         double gamma = Math.log(0.42) / Math.log(m);
-        gamma = Math.max(0.45, Math.min(1.6, gamma));
+        // Solo se aclara (si la toma quedó oscura); nunca se oscurece una imagen bien expuesta
+        gamma = Math.max(0.5, Math.min(1.0, gamma));
         int[] lut = new int[256];
         for (int v = 0; v < 256; v++) {
             double t = Math.max(0, Math.min(1, (v - lo) / (double) (hi - lo)));
@@ -395,6 +397,49 @@ public final class PanoPost {
             if (acc >= target) return v;
         }
         return 255;
+    }
+
+    /**
+     * Pasa la relación R/d medida por rumbo del sensor a «distancia por columna» de la
+     * panorámica (para {@link #correctVerticalByColumns}), rellenando huecos y suavizando.
+     *
+     * @param ratio         R/d por tramos de rumbo del sensor desde −180° (NaN = sin dato)
+     * @param refHeadingRad rumbo del sensor que corresponde a la longitud 0 de la panorámica
+     * @return distancias (m) para cw columnas repartidas en los 360°, o null si no hay datos
+     */
+    public static float[] ratioToColumnDistance(float[] ratio, double refHeadingRad, double armRadius, int cw) {
+        int n = ratio.length, good = 0;
+        for (float v : ratio) if (!Float.isNaN(v)) good++;
+        if (good < n / 3) return null;
+        // Un único valor para toda la vuelta (la mediana): una corrección distinta en cada
+        // dirección ondularía las líneas rectas cuando hay objetos cercanos y lejanos juntos.
+        float[] v = new float[good];
+        int k = 0;
+        for (float r : ratio) if (!Float.isNaN(r)) v[k++] = r;
+        java.util.Arrays.sort(v);
+        float rho = Math.min(0.3f, v[good / 2]);
+        if (rho < 0.02f) return null;
+        float[] out = new float[cw];
+        java.util.Arrays.fill(out, (float) (armRadius / rho));
+        return out;
+    }
+
+    /** Pasos finales comunes: huecos, profundidad, perspectiva vertical, niveles y polos. */
+    public static DepthEstimator.Result finish(PanoBuffer left, PanoBuffer right, PanoBuffer mono, float[] columnDistance,
+                                               double armRadius, double eyeRadius, double cameraHeight,
+                                               DepthEstimator.Progress progress) {
+        int w = mono.w, h = mono.h;
+        fillHoles(left);
+        fillHoles(right);
+        fillHoles(mono);
+        DepthEstimator.Result depth = DepthEstimator.estimate(left.color, right.color, mono.color, w, h, eyeRadius, cameraHeight, progress);
+        if (columnDistance != null) {
+            correctVerticalByColumns(new int[][]{left.color, right.color, mono.color}, w, h, columnDistance,
+                    depth.q, depth.w, depth.h, armRadius);
+        }
+        autoLevels(mono.color, left.color, right.color, mono.color);
+        poleBlend(left.color, right.color, mono.color, w, h, 60, 75);
+        return depth;
     }
 
     /** Reduce una panorámica a tw × th promediando bloques. */
